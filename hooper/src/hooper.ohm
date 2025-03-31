@@ -1,26 +1,51 @@
 hooper {
-    Program             = (Stmt | comment)*
+    Program             = Stmt*
     Stmt                = VarDec
+                        | FunctionDec                       
                         | PrintStmt
-                        | WhileStmt
-                        | IfStmt
-                        | break ";"                         --break  
                         | AssignmentStmt
-                        | Primary_id "++" ";"               --increment
-                        | Primary_id "--" ";"               --decrement  
+                        | IfStmt
+                        | WhileStmt
+                        | break ";"                                         --break  
+                        | IncrementStmt
+                        | dunk Exp? ";"                                     --dunk
       
-    VarDec              = pick id "=" Exp ";"
-    PrintStmt           = log Exp ";"                   // add parens
-    AssignmentStmt      = Primary_id "=" Exp ";"
-    IfStmt              = if Exp Block (else(Block | IfStmt))?
+    VarDec              = (pick | const) id ":" Type "=" Exp ";"            --withtype
+                        | (pick | const) id "=" Exp ";"                     --inference
+    FunctionDec         = defineplay id Params ("->" Type)? Block
+    Params              = "(" ListOf<Param, ","> ")"
+    Param               = id ":" Type
+
+    PrintStmt           = log Exp ";"                   
+    AssignmentStmt      = (Primary_subscript | Primary_id) "=" Exp ";"
+
+    IfStmt              = if Exp Block putback Block     --long
+                        | if Exp Block putback IfStmt    --elsif
+                        | if Exp Block                   --short
     WhileStmt           = while Exp Block
-    Block               = "{" Stmt+ "}" 
+    Block               = "{" Stmt* "}" 
+    IncrementStmt       = (Primary_subscript | Primary_id) "++" ";"
+    // add decrement
+    
+    
+    Type                = "Arr[" Type "]"                                   --array                 
+                        | prim_type
+    prim_type           = "number" | "boolean" | "string"
      
-    Exp                 = Condition relop Condition         --test
+
+    Exp                 = Exp1
+
+    Exp1                = Exp2 ("or" Exp2)+              --or   
+                        | Exp2 
+
+    Exp2                = Exp3 ("and" Exp3)+             --and
+                        | Exp3
+
+    Exp3                = Condition relop Condition      --test
                         | Condition      
 
-    Condition           = Exp "+" Term                      --add
-                        | Exp "-" Term                      --sub
+    Condition           = Condition "+" Term             --add
+                        | Condition "-" Term             --sub
                         | Term
 
     Term                = Term "*" Factor                   --mult
@@ -32,31 +57,37 @@ hooper {
                         | "-" Primary                       --neg
                         | Primary
 
-    Primary             = numeral
+    Primary             = true ~mut
+                        | false ~mut
+                        | nil  ~"="                         --nil
+                        | numeral
                         | stringlit                         --string
+                        | id "(" ListOf<Exp, ","> ")"       --call
                         | Primary "[" Exp "]"               --subscript
                         | id                                --id
                         | "[" ListOf<Exp, ","> "]"          --array
-                        | "(" Exp ")"  --parens
+                        | "(" Exp ")"                       --parens
     
-    comment = "//" (~"\n" any)*
-
-     
-    pick                 = "pick" ~idchar
+    mut                 = ~"==" "=" | "++" | "--" | "["
+    pick                = "pick" ~idchar       
+    const               = "const" ~idchar      
     log                 = "log" ~idchar
     while               = "while" ~idchar
-    if                  = "if" ~idchar
-    else                = "else" ~idchar
+    if                  = "if" ~idchar          
+    putback             = "putback" ~idchar      
     break               = "break" ~idchar
-    keyword             = log | while | if | else | break | pick 
+    defineplay          = "define play" ~idchar
+    dunk                = "dunk" ~idchar
+    true                = "true" ~idchar    
+    false               = "false" ~idchar
+    nil                 = "nil" ~idchar
+    keyword             = pick | const | log | while | if | putback | break | defineplay | dunk | true | false | nil
     id                  = ~keyword letter idchar*
     idchar              = letter | digit | "_"
     numeral             = digit+ ("." digit+)? (("E" | "e") ("+"|"-")? digit+)?
-    stringlit = "\"" (~"\"" any)* "\""
+    stringlit           = "\"" (~"\"" any)* "\""
 
     relop               = "<=" | "<" | "==" | "!=" | ">=" | ">"
 
-    space               += comment
-     
-        
+    space               += "#" (~"\n" any)*          --comment
 }
